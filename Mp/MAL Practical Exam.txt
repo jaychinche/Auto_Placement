@@ -1,0 +1,842 @@
+----------------------------------------------------------------------------------------------------------
+
+; Assignment No.08
+; This program first check the mode of processor (Protected/Real), then reads GDTR,IDTR,LDTR,TR,MSW and display the same.
+
+section .data
+nline db 10,10
+nline_len equ $- nline
+colon db ":"
+
+rmsg db 10,"Processor is in Real Mode"
+rmsg_len equ $- rmsg
+
+pmsg db 10,"Processor is in Protected Mode"
+pmsg_len equ $- pmsg 
+
+gmsg db 10,"GDTR (Global Descriptor Table Register)"
+gmsg_len equ $- gmsg
+
+imsg db 10,"IDTR (Interrupt Descriptor Table Register)"
+imsg_len equ $- imsg
+
+lmsg db 10,"LDTR (Local Descriptor Table Register)"
+lmsg_len equ $- lmsg
+
+tmsg db 10,"TR (Task Register)"
+tmsg_len equ $- tmsg
+
+mmsg db 10,"MSW (Machine Status Word)"
+mmsg_len equ $- mmsg
+
+section .bss
+GDTR resw 3
+IDTR resw 3
+LDTR resw 1
+TR resw 1
+MSW resw 1
+char_ans resb 4
+
+%macro Print 2
+mov rax,1
+mov rdi,1
+mov rsi,%1
+mov rdx,%1
+syscall
+%endmacro
+
+%macro Read 2
+mov rax,0
+mov rdi,0
+mov rsi,%1
+mov rdx,%1
+syscall
+%endmacro
+
+%macro Exit 0
+mov rax,60
+mov rdi,00
+syscall
+%endmacro
+
+section .text
+global _start
+_start:
+SMSW [MSW]
+mov rax,[MSW]
+ror rax,1
+jc p_mode
+Print rmsg,rmsg_len
+jmp next
+
+p_mode:
+Print pmsg,pmsg_len
+
+next:
+SGDT [GDTR]
+SIDT [IDTR]
+SLDT [LDTR]
+STR [TR]
+SMSW [MSW]
+
+Print gmsg,gmsg_len
+mov ax,[GDTR+4]
+call display
+mov ax,[GDTR+2]
+call display
+Print colon,1
+mov ax,[GDTR+0]
+call display
+
+Print imsg,imsg_len
+mov ax,[IDTR+4]
+call display
+mov ax,[IDTR+2]
+call display
+Print colon,1
+mov ax,[IDTR+0]
+call display
+
+Print lmsg,lmsg_len
+mov ax,[LDTR]
+call display
+
+Print tmsg,tmsg_len
+mov ax,[TR]
+call display
+
+Print mmsg,mmsg_len
+mov ax,[MSW]
+call display
+Print nline,nline_len
+Exit
+
+display:
+mov rbx,16
+mov rcx,4
+mov rsi,char_ans+3
+
+count:
+mov rdx,0
+div rbx
+cmp dl,09h
+jbe add30
+add dl,07h
+
+add30:
+add dl,30h
+mov [rsi],dl
+dec rsi
+dec rcx
+jnz count
+Print char_ans,4
+ret
+
+-----------------------------------------------------------------------------------------------
+
+; Assignment No.07
+; Overlapped Block Transfer with String Instructions
+
+section .data
+nline db 10,10
+nline_len equ $- nline 
+space db " "
+
+ano db 10,"Assignment No.07"
+db 10,"Block Transfer Overlapped with String Instructions"
+ano_len equ $- ano
+
+bmsg db 10,"Before Transfer : "
+bmsg_len equ $- bmsg
+
+amsg db 10,"After Transfer : "
+amsg_len equ $- amsg
+
+smsg db 10,"Source Block : "
+smsg_len equ $- smsg
+
+dmsg db 10,"Destination Block : ";
+dmsg_len equ $- dmsg
+
+sblock db 11h,22h,33h,44h,55h
+dblock times 5 db 00
+
+section .bss
+char_ans resb 2
+
+%macro Print 2
+mov rax,1
+mov rdi,1
+mov rsi,%1
+mov rdx,%2
+syscall
+%endmacro
+
+%macro Read 2
+mov rax,0
+mov rdi,0
+mov rsi,%1
+mov rdx,%2
+syscall
+%endmacro
+
+%macro Exit 0
+mov rax,60
+mov rdi,00
+syscall
+%endmacro
+
+section .text
+global _start
+_start:
+Print ano,ano_len
+Print bmsg,bmsg_len
+Print smsg,smsg_len
+mov rsi,sblock
+call display
+Print dmsg,dmsg_len
+mov rsi,dblock-2
+call BT_OS
+Print smsg,smsg_len
+mov rsi,sblock
+call display
+Print dmsg,dmsg_len
+mov rsi,dblock-2
+call display
+Exit
+
+BT_OS:
+mov rsi,sblock+4
+mov rdi,dblock+2
+mov rcx,5
+STD  ; STD (Set Direction Flag) | dec rsi, dec rdi
+REP MOVSB  ; MOVSB (Move with String Bytes) | mov al,[rsi]  mov [rdi],al    REP (Repeat) | dec rcx,jnz back
+ret
+
+display:
+mov rbp,5
+
+next_num:
+mov al,[rsi]
+push rsi
+call display8
+Print space,1
+pop rsi
+inc rsi
+dec rbp
+jnz next_num
+ret
+
+display8:
+mov rsi,char_ans+1
+mov rcx,2
+mov rbx,16
+
+next_digit:
+xor rdx,rdx
+div rbx
+cmp dl,09h
+jbe add30
+add dl,07h
+
+add30:
+add dl,30h
+mov [rsi],dl
+dec rsi
+dec rcx
+jnz next_digit
+Print char_ans,2
+ret
+
+-----------------------------------------------------------------------------------------------------------
+
+; Assignment No.06
+; Transfer Non-Overlapped without String Instructions
+
+section .data
+nline db 10,10
+nline_len equ $- nline
+space db " "
+
+ano db 10,"Assignment No.06"
+db 10,"Block Transfer Non-Overlapped without String Instructions"
+ano_len equ $- ano
+
+bmsg db 10,"Before Transfer : "
+bmsg_len equ $- bmsg
+
+amsg db 10,"After Transfer : "
+amsg_len equ $- amsg
+
+smsg db 10,"Source Block : "
+smsg_len equ $- smsg
+
+dmsg db 10,"Destination Block : "
+dmsg_len equ $- dmsg
+
+sblock db 11h,22h,33h,44h,55h
+dblock times 5 db 00
+
+section .bss
+char_ans resb 2
+
+%macro Print 2
+mov rax,1
+mov rdi,1
+mov rsi,%1
+mov rdx,%2
+syscall
+%endmacro
+
+%macro Read 2
+mov rax,0
+mov rdi,0
+mov rsi,%1
+mov rdx,%2
+syscall
+%endmacro
+
+%macro Exit 0
+mov rax,60
+mov rdi,00
+syscall
+%endmacro
+
+section .text
+global _start
+_start:
+Print ano,ano_len
+Print bmsg,bmsg_len
+Print smsg,smsg_len
+mov rsi,sblock
+call display
+Print dmsg,dmsg_len
+mov rsi,dblock
+call display
+call BT_NO
+Print amsg,amsg_len
+Print smsg,smsg_len
+mov rsi,sblock
+call display
+Print dmsg,dmsg_len
+mov rsi,dblock
+call display
+Exit
+
+BT_NO:
+mov rsi,sblock
+mov rdi,dblock
+mov rcx,5
+
+back:
+mov al,[rsi]
+mov [rdi],al
+inc rsi
+inc rdi
+dec rcx
+jnz back
+ret
+
+display:
+mov rbp,5
+
+next_num:
+mov al,[rsi]
+push rsi
+call display8
+Print space,1
+pop rsi
+inc rsi
+dec rbp
+jnz next_num
+ret
+
+display8:
+mov rsi,char_ans+1
+mov rcx,2
+mov rbx,16
+
+next_digit:
+xor rdx,rdx
+div rbx
+cmp dl,09h
+jbe add30
+add dl,07h
+
+add30:
+add dl,30h
+mov [rsi],dl
+dec rsi
+dec rcx
+jnz next_digit
+Print char_ans,2
+ret
+
+-------------------------------------------------------------------------------------------------------
+
+; Assignment No.05
+; Write X86/64 ALP program to convert 5 digits BCD number to corresponding HEX number.
+
+section .data
+bmsg db 10,"Enter 5 digit BCD number : "
+bmsg_len equ $- bmsg
+
+ehmsg db 10,"The equivalent HEX number is : "
+ehmsg_len equ $- ehmsg
+
+section .bss
+buf resb 6
+char_ans resb 4
+ans resw 1
+
+%macro Print 2
+mov rax,1
+mov rdi,1
+mov rsi,%1
+mov rdx,%2
+syscall
+%endmacro
+
+%macro Read 2
+mov rax,0
+mov rdi,0
+mov rsi,%1
+mov rdx,%2
+syscall
+%endmacro
+
+%macro Exit 0
+mov rax,60
+mov rdi,00
+syscall
+%endamcro
+
+section .text
+global_start
+_start:
+call BCD_HEX
+Exit
+
+BCD_HEX:
+Print bmsg,bmsg_len
+Read buf,6
+mov rsi,buf
+xor ax,ax
+mov rbp,5
+mov rbx,10
+
+next:
+xor cx,cx
+mul bx
+mov cl,[rsi]
+sub cl,30h
+add ax,ax
+inc rsi
+dec rbp
+jnz next
+mov [ans],ax
+Print ehmsg,ehmsg_len
+mov ax,[ans]
+call display
+ret
+
+display:
+mov rsi,char_ans+3
+mov rcx,4
+mov rbx,16
+
+next_digit:
+xor rdx,rdx
+div rbx
+cmp dl,09h
+jbe add30
+add dl,07h
+
+add30:
+add dl,30h
+mov [rsi],dl
+dec rsi
+dec rcx
+jnz next_digit
+Print char_ans,4
+ret
+
+------------------------------------------------------------------------------------------------------------------
+
+; Assignment No.04
+; Write X86/64 ALP to convert 4 digits hexadecimal number to corresponding BCD number.
+
+section .data
+hmsg db 10,"Enter 4 digits HEX number : "
+hmsg_len equ $- hmsg
+
+ebmsg db 10,"The equivalent BCD number is : "
+ebmsg_len equ $- ebmsg
+
+ermsg db 10,"INVALID NUMBER INPUT"
+ermsg_len equ $- ermsg
+
+section .bss
+buf resb 5
+char_ans resb 1
+
+%macro Print 2
+mov rax,1
+mov rdi,1
+mov rsi,%1
+mov rdx,%2
+syscall
+%endmacro
+
+%macro Read 2
+mov rax,0
+mov rdi,0
+mov rsi,%1
+mov rdx,%2
+syscall
+%endmacro
+
+%macro Exit 0
+mov rax,60
+mov rdi,00
+syscall
+%endmacro
+
+section .text
+global _start:
+_start:
+call HEX_BCD
+Exit
+
+HEX_BCD:
+Print hmsg,hmsg_len
+call accept
+mov ax,bx
+mov bx,10
+xor bp,bp
+
+back:
+xor dx,dx
+div bx
+push dx
+inc bp
+cmp ax,0
+jne back
+Print ebmsg,ebmsg_len
+
+back1:
+pop dx
+add dl,30h
+mov [char_ans],dl
+Print char_ans,1
+dec bp
+jnz back1
+ret
+
+accept:
+Read buf,5
+mov rcx,4
+mov rsi,buf
+
+next_byte:
+shl bx,4
+mov al,[rsi]
+cmp al,'0'
+jb error
+cmp al,'9'
+jbe sub30
+cmp al,'A'
+jb error
+cmp al,'F'
+jbe sub37
+cmp al,'a'
+jb error
+cmp al,'f'
+jbe sub37
+cmp al,'a'
+jb error
+cmp al,'f'
+jbe sub57
+
+error:
+Print ermsg,ermsg_len
+Exit
+
+sub57:
+sub al,20h
+
+sub37:
+sub al,07h
+
+sub30:
+sub al,30h
+add bx,ax
+inc rsi
+dec rcx
+jnz next_byte
+ret
+
+--------------------------------------------------------------------------------------------------------------
+
+; Assignment No.03
+; Write X86/64 ALP to find the number of positive and negative elements from 64-bit array.
+
+section .data
+nline db 10,10
+nline_len equ $- nline 
+
+ano db 10,"Assignment No.02"
+db 10,"Positive or Negative Elements from 64-bit array"
+ano_len equ $- ano
+arr64 dq -21h,31h,-33h,11h,62h
+n equ 5
+
+pmsg db 10,"The number of positive elements : "
+pmsg_len equ $- pmsg
+
+nmsg db 10,"The number of negative elements : "
+nmsg_len equ $- nmsg
+
+section .bss
+p_count resq 1
+n_count resq 1
+char_ans resb 16
+
+%macro Print 2
+mov rax,1
+mov rdi,1
+mov rsi,%1
+mov rdx,%2
+syscall
+%endmacro
+
+%macro Read 2
+mov rax,0
+mov rdi,0
+mov rsi,%1
+mov rdx,%2
+syscall
+%endmacro
+
+%macro Exit 0
+mov rax,60
+mov rdi,00
+syscall
+%endmacro
+
+section .text
+global _start
+_start:
+Print ano,ano_len
+mov rsi,arr64
+mov rcx,n
+mov rbx,0
+mov rdx,0
+
+next_num:
+mov rax,[rsi]
+rol rax,1
+jc negative
+
+positive:
+inc rbx
+jmp next
+
+negative:
+inc rdx
+
+next:
+add rsi,8
+dec rcx
+jnz next_num
+mov [p_count],rbx
+mov [n_count],rdx
+Print pmsg,pmsg_len
+mov rax,[p_count]
+call display
+Print nmsg,nmsg_len
+mov rax,[n_count]
+call display
+Print nline,nline_len
+Exit
+
+display:
+mov rbx,16
+mov rcx,2
+mov rsi,char_ans+1
+
+count:
+mov rdx,0
+div rbx
+cmp dl,09h
+jbe add30
+add dl,07h
+
+add30:
+add dl,30h
+mov [rsi],dl
+dec rsi
+dec rcx
+jnz count
+Print char_ans,2
+ret
+
+----------------------------------------------------------------------------------------------------------------------
+
+; Assignment No.02
+; Write X86/64 ALP to accept a string and to display its length.
+
+section .data
+msg db 10,"Enter the string : "
+msg_len equ $- msg
+
+smsg db 10,"The length of string is : "
+smsg_len equ $- smsg
+
+section .bss
+string resb 50
+stringl equ $- string
+count resb 1
+char_ans resb 2
+
+%macro Print 2
+mov rax,1
+mov rdi,1
+mov rsi,%1
+mov rdx,%1
+syscall
+%endmacro
+
+%macro Read 2
+mov rax,0
+mov rdi,0
+mov rsi,%1
+mov rdx,%1
+syscall
+%endmacro
+
+%macro Exit 0
+mov rax,60
+mov rdi,00
+syscall
+%endmacro
+
+section .text
+global _start:
+_start:
+Print msg,msg_len
+Read string,stringl
+mov [count],rax
+Print smsg,smsg_len
+mov rax,[count]
+dec rax
+call display
+Exit
+
+display:
+mov rbx,16
+mov rcx,2
+mov rsi,char_ans+1
+
+cnt:
+mov rdx,0
+div rbx
+cmp dl,09h
+jbe add30
+add dl,07h
+
+add30:
+add dl,30h
+mov [rsi],dl
+dec rsi
+dec rcx
+jnz cnt
+Print char_ans,2
+ret
+
+------------------------------------------------------------------------------------------------------------------
+
+; Assignment No.01 Part B
+; Write X86/64 ALP to print "Hello World" using macros in Assembly Language Programming.
+
+section .data
+ano db 10,"Assignment No.01 Part B"
+ano_len equ $- ano
+
+msg1 db 10,"Welcome to Assembly Language Programming (ALP)"
+msg1_len equ $- msg1
+
+msg2 db 10,"Hello World using 64-bits Operating System (OS)"
+msg2_len equ $- msg2
+
+%macro Print 2
+mov rax,1
+mov rdi,1
+mov rsi,%1
+mov rdx,%2
+syscall
+%endmacro
+
+%macro Read 2
+mov rax,0
+mov rdi,0
+mov rsi,%1
+mov rdx,%2
+syscall
+%endmacro
+
+%macro Exit 0
+mov rax,60
+mov rdi,00
+syscall
+%endmacro
+
+section .text
+global _start
+_start:
+Print ano,ano_len
+Print msg1,msg1_len
+Print msg2,msg2_len
+Exit
+
+-------------------------------------------------------------------------------------------------------------------
+
+; Assignment No.01 Part A
+; Write X86/64 ALP to print "Hello World" in Assembly Language Programming (ALP).
+
+section .data
+ano db 10,"Assignment No.01 Part A"
+ano_len equ $- ano
+
+msg1 db 10,"Welcome to Assembly Language Programming (ALP)"
+msg1_len equ $- msg1
+
+msg2 db 10,"Hello World using 64-bits Operating System (OS)"
+msg2_len equ $- msg2
+
+section .text 
+global _start
+_start:
+mov rax,1
+mov rdi,1
+mov rsi,ano
+mov rdx,ano_len
+syscall
+
+mov rax,1
+mov rdi,1
+mov rsi,msg1
+mov rdx,msg1_len
+syscall
+
+mov rax,1
+mov rdi,1
+mov rsi,msg2
+mov rdx,msg2_len
+syscall
+
+mov rax,60
+mov rdi,00
+syscall
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
